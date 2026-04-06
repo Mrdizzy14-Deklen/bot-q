@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bot-Q Display</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #1a1a1a;
+      color: #ffffff;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin-bottom: 32px;
+      letter-spacing: 0.05em;
+      color: #e53935;
+    }
+    .queue {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      width: 100%;
+      max-width: 600px;
+      padding: 24px;
+    }
+    .fight-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 28px;
+      background: #1a1a1a;
+      border: 1px solid #cccccc;
+      border-radius: 8px;
+      font-size: 1.4rem;
+    }
+    .fight-card.current {
+      background: #e53935;
+      border-color: #e53935;
+    }
+    .fight-card .vs {
+      font-weight: 700;
+      font-size: 1.2rem;
+      padding: 0 16px;
+    }
+    .fight-card:not(.current) .vs { color: #888; }
+    .fight-card.current .vs { color: #fff; }
+    .fight-num {
+      font-size: 1rem;
+      margin-right: 16px;
+    }
+    .fight-card:not(.current) .fight-num { color: #888; }
+    .fight-card.current .fight-num { color: rgba(255,255,255,0.9); }
+    .empty {
+      font-size: 1.2rem;
+      color: #888;
+      text-align: center;
+      padding: 48px 24px;
+      border: 1px solid #333;
+      border-radius: 8px;
+      width: 100%;
+      max-width: 600px;
+    }
+  </style>
+</head>
+<body>
+  <h1>BOTS ON DECK</h1>
+  <div class="queue" id="queue"></div>
+
+  <script>
+    const API = '';
+
+    function escapeHtml(s) {
+      const div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
+
+    function render(queue, currentFightId) {
+      const el = document.getElementById('queue');
+      if (!queue || queue.length === 0) {
+        el.innerHTML = '<div class="empty">No fights queued</div>';
+        return;
+      }
+      el.innerHTML = queue.map((f, i) => {
+        const isCurrent = f.id === currentFightId;
+        return `
+        <div class="fight-card ${isCurrent ? 'current' : ''}">
+          <span class="fight-num">#${i + 1}</span>
+          <span>${escapeHtml(f.bot1)}</span>
+          <span class="vs">VS</span>
+          <span>${escapeHtml(f.bot2)}</span>
+        </div>
+      `;
+      }).join('');
+    }
+
+    function connectWs() {
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const ws = new WebSocket(proto + '//' + location.host + '/ws');
+      ws.onmessage = (e) => {
+        const data = JSON.parse(e.data);
+        if (data.queue) render(data.queue, data.current_fight_id);
+      };
+      ws.onclose = () => setTimeout(connectWs, 2000);
+    }
+
+    fetch(API + '/api/queue')
+      .then(r => r.json())
+      .then(d => render(d.queue, d.current_fight_id))
+      .catch(() => render([]));
+    connectWs();
+  </script>
+</body>
+</html>

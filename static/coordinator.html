@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bot-Q Coordinator</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #1a1a1a;
+      color: #ffffff;
+      margin: 0;
+      padding: 24px;
+      min-height: 100vh;
+    }
+    h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 24px;
+      color: #e53935;
+      letter-spacing: 0.02em;
+    }
+    .add-section {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 32px;
+      align-items: flex-end;
+    }
+    .add-section input {
+      padding: 10px 14px;
+      font-size: 1rem;
+      border: 1px solid #cccccc;
+      border-radius: 8px;
+      background: #1a1a1a;
+      color: #fff;
+      min-width: 140px;
+    }
+    .add-section input::placeholder { color: #888; }
+    .add-section input:focus {
+      outline: none;
+      border-color: #e53935;
+    }
+    .btn {
+      padding: 10px 18px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .btn-primary {
+      background: #e53935;
+      color: #fff;
+    }
+    .btn-primary:hover { background: #c62828; }
+    .btn-secondary {
+      background: transparent;
+      color: #fff;
+      border: 1px solid #cccccc;
+    }
+    .btn-secondary:hover { background: #333; }
+    .btn-danger {
+      background: #b71c1c;
+      color: #fff;
+    }
+    .btn-danger:hover { background: #8b0000; }
+    .btn-sm {
+      padding: 6px 10px;
+      font-size: 0.85rem;
+    }
+    .queue {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .fight-row {
+      display: grid;
+      grid-template-columns: 40px minmax(120px, 1fr) minmax(120px, 1fr) minmax(280px, auto);
+      gap: 12px;
+      align-items: center;
+      padding: 14px 20px;
+      background: #1a1a1a;
+      border: 1px solid #cccccc;
+      border-radius: 8px;
+      min-height: 52px;
+    }
+    .fight-row.current {
+      background: #e53935;
+      border-color: #e53935;
+    }
+    .fight-row.current .fight-num,
+    .fight-row.current .actions .btn-secondary { color: #fff; border-color: rgba(255,255,255,0.6); }
+    .fight-row.editing input {
+      padding: 6px 10px;
+      font-size: 0.95rem;
+      border: 1px solid #555;
+      border-radius: 6px;
+      background: #0a0a0a;
+      color: #fff;
+      width: 100%;
+    }
+    .fight-num {
+      color: #888;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+    .actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: nowrap;
+      justify-content: flex-end;
+    }
+    .empty {
+      color: #888;
+      padding: 32px;
+      text-align: center;
+      font-size: 1rem;
+      border: 1px solid #333;
+      border-radius: 8px;
+      background: #1a1a1a;
+    }
+    .status {
+      font-size: 0.8rem;
+      color: #4caf50;
+      margin-top: 16px;
+    }
+    .status.disconnected { color: #e53935; }
+  </style>
+</head>
+<body>
+  <h1>BOT-Q COORDINATOR</h1>
+
+  <div class="add-section">
+    <div>
+      <label style="display:block;font-size:0.75rem;color:#888;margin-bottom:4px">Bot 1</label>
+      <input type="text" id="bot1" placeholder="Robot name">
+    </div>
+    <div>
+      <label style="display:block;font-size:0.75rem;color:#888;margin-bottom:4px">Bot 2</label>
+      <input type="text" id="bot2" placeholder="Robot name">
+    </div>
+    <button class="btn btn-primary" id="add-btn">Add Fight →</button>
+  </div>
+
+  <div class="queue" id="queue"></div>
+
+  <div class="status" id="status">Connected</div>
+
+  <script>
+    const API = '';
+    const queueEl = document.getElementById('queue');
+    const statusEl = document.getElementById('status');
+
+    function setStatus(connected) {
+      statusEl.textContent = connected ? 'Connected' : 'Disconnected';
+      statusEl.classList.toggle('disconnected', !connected);
+    }
+
+    function fetchState() {
+      return fetch(API + '/api/queue').then(r => r.json());
+    }
+
+    async function addFight(bot1, bot2) {
+      await fetch(API + '/api/queue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bot1, bot2 })
+      });
+    }
+
+    async function removeFight(id) {
+      await fetch(API + '/api/queue/' + id, { method: 'DELETE' });
+    }
+
+    async function editFight(id, bot1, bot2) {
+      await fetch(API + '/api/queue/' + id, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bot1, bot2 })
+      });
+    }
+
+    async function moveFight(id, direction) {
+      await fetch(API + '/api/queue/' + id + '/move', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ direction })
+      });
+    }
+
+    async function setCurrent(id) {
+      await fetch(API + '/api/current', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fight_id: id || null })
+      });
+    }
+
+    function escapeHtml(s) {
+      const div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
+
+    function getRow(id) {
+      return document.querySelector(`.fight-row[data-id="${id}"]`);
+    }
+
+    function render(queue, currentFightId) {
+      if (!queue || queue.length === 0) {
+        queueEl.innerHTML = '<div class="empty">No fights in queue. Add one above.</div>';
+        return;
+      }
+      queueEl.innerHTML = queue.map((f, i) => {
+        const isCurrent = f.id === currentFightId;
+        return `
+        <div class="fight-row ${isCurrent ? 'current' : ''}" data-id="${f.id}">
+          <span class="fight-num">${i + 1}</span>
+          <span class="bot1-text">${escapeHtml(f.bot1)}</span>
+          <span class="bot2-text">${escapeHtml(f.bot2)}</span>
+          <div class="actions">
+            ${isCurrent
+              ? '<button class="btn btn-sm btn-secondary" title="Clear current" onclick="clearCurrent()">Clear</button>'
+              : '<button class="btn btn-sm btn-primary" title="Set as current fight" onclick="setCurrentFight(\'' + f.id + '\')">Set current →</button>'
+            }
+            <button class="btn btn-sm btn-secondary" title="Move up" onclick="move('${f.id}','up')">▲</button>
+            <button class="btn btn-sm btn-secondary" title="Move down" onclick="move('${f.id}','down')">▼</button>
+            <button class="btn btn-sm btn-secondary" title="Edit" onclick="edit('${f.id}')">Edit</button>
+            <button class="btn btn-sm btn-danger" title="Remove" onclick="remove('${f.id}')">Remove</button>
+          </div>
+        </div>
+      `;
+      }).join('');
+    }
+
+    window.setCurrentFight = async function(id) {
+      await setCurrent(id);
+    };
+
+    window.clearCurrent = async function() {
+      await setCurrent(null);
+    };
+
+    window.edit = function(id) {
+      const row = getRow(id);
+      const bot1El = row.querySelector('.bot1-text');
+      const bot2El = row.querySelector('.bot2-text');
+      const bot1 = bot1El.textContent;
+      const bot2 = bot2El.textContent;
+      row.classList.add('editing');
+      row.innerHTML = `
+        <span class="fight-num">${queue.findIndex(f => f.id === id) + 1}</span>
+        <input type="text" class="edit-bot1" value="${escapeHtml(bot1)}">
+        <input type="text" class="edit-bot2" value="${escapeHtml(bot2)}">
+        <div class="actions">
+          <button class="btn btn-sm btn-primary" onclick="saveEdit('${id}')">Save</button>
+          <button class="btn btn-sm btn-secondary" onclick="applyState(queue, currentFightId)">Cancel</button>
+        </div>
+      `;
+      row.querySelector('.edit-bot1').focus();
+    };
+
+    window.saveEdit = async function(id) {
+      const row = getRow(id);
+      const bot1 = row.querySelector('.edit-bot1').value.trim();
+      const bot2 = row.querySelector('.edit-bot2').value.trim();
+      if (!bot1 || !bot2) return;
+      await editFight(id, bot1, bot2);
+    };
+
+    window.remove = async function(id) {
+      await removeFight(id);
+    };
+
+    window.move = async function(id, dir) {
+      await moveFight(id, dir);
+    };
+
+    let queue = [];
+    let currentFightId = null;
+
+    function applyState(newQueue, newCurrentId) {
+      queue = newQueue || [];
+      currentFightId = newCurrentId ?? null;
+      render(queue, currentFightId);
+    }
+
+    document.getElementById('add-btn').addEventListener('click', async () => {
+      const bot1 = document.getElementById('bot1').value.trim();
+      const bot2 = document.getElementById('bot2').value.trim();
+      if (!bot1 || !bot2) return;
+      await addFight(bot1, bot2);
+      document.getElementById('bot1').value = '';
+      document.getElementById('bot2').value = '';
+      document.getElementById('bot1').focus();
+    });
+
+    document.getElementById('bot2').addEventListener('keydown', async (e) => {
+      if (e.key === 'Enter') document.getElementById('add-btn').click();
+    });
+
+    function connectWs() {
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const ws = new WebSocket(proto + '//' + location.host + '/ws');
+      ws.onmessage = (e) => {
+        const data = JSON.parse(e.data);
+        if (data.queue) applyState(data.queue, data.current_fight_id);
+      };
+      ws.onclose = () => {
+        setStatus(false);
+        setTimeout(connectWs, 2000);
+      };
+      ws.onopen = () => setStatus(true);
+    }
+
+    (async () => {
+      try {
+        const s = await fetchState();
+        applyState(s.queue, s.current_fight_id);
+      } catch (_) {
+        setStatus(false);
+      }
+      connectWs();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "fights": [
+    {
+      "id": "09c213ea-d651-4fc4-a4e6-88a807ef60c9",
+      "bot1": "adsf",
+      "bot2": "asdf"
+    },
+    {
+      "id": "e7f7261b-ffd3-46a6-8e9a-bcd69caebcb1",
+      "bot1": "asdfas",
+      "bot2": "fxczz"
+    },
+    {
+      "id": "0fbdd5a9-f0df-466d-94bd-db5f6fb8687f",
+      "bot1": "ghkn",
+      "bot2": "gbnfvf"
+    }
+  ],
+  "current_fight_id": "e7f7261b-ffd3-46a6-8e9a-bcd69caebcb1"
+}
